@@ -1,0 +1,63 @@
+version: '3.4'
+services:
+  rabbit-imbee:
+    build:
+      context: rabbit-imbee
+    image: ${REGISTRY}:${IMAGE_TAG}
+    networks:
+      - public
+      - internal
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "blablabla"
+      RABBITMQ_DEFAULT_USER: "test"
+      RABBITMQ_DEFAULT_PASS: "test"
+      RABBITMQ_DEFAULT_VHOST: "/"
+    ports:
+      - "15672:15672" # admin-page
+      - "5672:5672"
+    labels:
+      NAME: "rabbit-imbee"
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 3000M
+        reservations:
+          memory: 200M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      update_config:
+        parallelism: 1
+        monitor: 20s
+        failure_action: rollback
+      placement:
+        constraints: [node.role == worker]
+
+  rabbit-exporter:
+    image: kbudde/rabbitmq-exporter
+    networks:
+      - internal
+      - public
+    environment:
+      RABBIT_URL: "http://rabbit-test:15672"
+      RABBIT_USER: "test"
+      RABBIT_PASSWORD: "test"
+      PUBLISH_PORT: "9090"
+    links:
+      - rabbit-imbee
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      placement:
+        constraints: [node.role == worker]
+    
+networks:
+  public:
+    external:
+      name: public
+  internal:
